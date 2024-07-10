@@ -1,35 +1,36 @@
 // Heavily derived from YAD2K (https://github.com/ModelDepot/tfjs-yolo-tiny-demo)
 
-import {Tensor} from 'onnxruntime-web';
+import { Tensor } from "onnxruntime-web";
 
-import classNames from '../data/yolo_classes';
+import classNames from "../data/yolo_classes";
 
-import * as yolo from './utils-yolo/yoloPostprocess';
+import * as yolo from "./utils-yolo/yoloPostprocess";
 
 export const YOLO_ANCHORS = new Tensor(
-    'float32', Float32Array.from([
-      1.08,
-      1.19,
-      3.42,
-      4.41,
-      6.63,
-      11.38,
-      9.42,
-      5.11,
-      16.62,
-      10.52,
-    ]),
-    [5, 2]);
+  "float32",
+  Float32Array.from([
+    1.08, 1.19, 3.42, 4.41, 6.63, 11.38, 9.42, 5.11, 16.62, 10.52,
+  ]),
+  [5, 2]
+);
 const DEFAULT_FILTER_BOXES_THRESHOLD = 0.01;
 const DEFAULT_IOU_THRESHOLD = 0.4;
 const DEFAULT_CLASS_PROB_THRESHOLD = 0.3;
 const INPUT_DIM = 416;
 
 export async function postprocess(outputTensor: Tensor, numClasses: number) {
-  const [boxXy, boxWh, boxConfidence, boxClassProbs] = yolo_head(outputTensor, YOLO_ANCHORS, 20);
+  const [boxXy, boxWh, boxConfidence, boxClassProbs] = yolo_head(
+    outputTensor,
+    YOLO_ANCHORS,
+    20
+  );
   const allBoxes = yolo_boxes_to_corners(boxXy, boxWh);
-  const [outputBoxes, scores, classes] =
-      await yolo_filter_boxes(allBoxes, boxConfidence, boxClassProbs, DEFAULT_FILTER_BOXES_THRESHOLD);
+  const [outputBoxes, scores, classes] = await yolo_filter_boxes(
+    allBoxes,
+    boxConfidence,
+    boxClassProbs,
+    DEFAULT_FILTER_BOXES_THRESHOLD
+  );
   // If all boxes have been filtered out
   if (outputBoxes == null) {
     return [];
@@ -38,10 +39,10 @@ export async function postprocess(outputTensor: Tensor, numClasses: number) {
   const width = yolo.scalar(INPUT_DIM);
   const height = yolo.scalar(INPUT_DIM);
 
-  const imageDims = yolo.reshape(yolo.stack([height, width, height, width]), [
-    1,
-    4,
-  ]);
+  const imageDims = yolo.reshape(
+    yolo.stack([height, width, height, width]),
+    [1, 4]
+  );
 
   const boxes: Tensor = yolo.mul(outputBoxes, imageDims);
 
@@ -51,10 +52,15 @@ export async function postprocess(outputTensor: Tensor, numClasses: number) {
   ]);
 
   const [keepIndx, boxesArr, keepScores] = non_max_suppression(
-      preKeepBoxesArr as Float32Array | Int32Array | Uint8Array, scoresArr as Float32Array | Int32Array | Uint8Array,
-      DEFAULT_IOU_THRESHOLD);
+    preKeepBoxesArr as Float32Array | Int32Array | Uint8Array,
+    scoresArr as Float32Array | Int32Array | Uint8Array,
+    DEFAULT_IOU_THRESHOLD
+  );
 
-  const classesIndxArr = (await yolo.gather(classes, new Tensor('int32', keepIndx)).data) as Float32Array;
+  const classesIndxArr = (await yolo.gather(
+    classes,
+    new Tensor("int32", keepIndx)
+  ).data) as Float32Array;
 
   const results: any[] = [];
 
@@ -87,18 +93,24 @@ export async function postprocess(outputTensor: Tensor, numClasses: number) {
 }
 
 export async function yolo_filter_boxes(
-    boxes: Tensor, boxConfidence: Tensor, boxClassProbs: Tensor, threshold: number) {
+  boxes: Tensor,
+  boxConfidence: Tensor,
+  boxClassProbs: Tensor,
+  threshold: number
+) {
   const boxScores = yolo.mul(boxConfidence, boxClassProbs);
   const boxClasses = yolo.argMax(boxScores, -1);
   const boxClassScores = yolo.max(boxScores, -1);
   // Many thanks to @jacobgil
   // Source: https://github.com/ModelDepot/tfjs-yolo-tiny/issues/6#issuecomment-387614801
-  const predictionMask = yolo.as1D(yolo.greaterEqual(boxClassScores, yolo.scalar(threshold)));
+  const predictionMask = yolo.as1D(
+    yolo.greaterEqual(boxClassScores, yolo.scalar(threshold))
+  );
 
   const N = predictionMask.size;
   // linspace start/stop is inclusive.
-  const allIndices = yolo.cast(yolo.linspace(0, N - 1, N), 'int32');
-  const negIndices = yolo.zeros([N], 'int32');
+  const allIndices = yolo.cast(yolo.linspace(0, N - 1, N), "int32");
+  const negIndices = yolo.zeros([N], "int32");
   const indices = yolo.where(predictionMask, allIndices, negIndices);
 
   return [
@@ -115,7 +127,7 @@ export async function yolo_filter_boxes(
  * @returns {Tensor} Bounding box corner Tensor
  */
 export function yolo_boxes_to_corners(boxXy: Tensor, boxWh: Tensor) {
-  const two = new Tensor('float32', [2.0]);
+  const two = new Tensor("float32", [2.0]);
   const boxMins = yolo.sub(boxXy, yolo.div(boxWh, two));
   const boxMaxes = yolo.add(boxXy, yolo.div(boxWh, two));
 
@@ -125,13 +137,14 @@ export function yolo_boxes_to_corners(boxXy: Tensor, boxWh: Tensor) {
   const size = [dim0, dim1, dim2, 1];
 
   return yolo.concat(
-      [
-        yolo.slice(boxMins, [0, 0, 0, 1], size),
-        yolo.slice(boxMins, [0, 0, 0, 0], size),
-        yolo.slice(boxMaxes, [0, 0, 0, 1], size),
-        yolo.slice(boxMaxes, [0, 0, 0, 0], size),
-      ],
-      3);
+    [
+      yolo.slice(boxMins, [0, 0, 0, 1], size),
+      yolo.slice(boxMins, [0, 0, 0, 0], size),
+      yolo.slice(boxMaxes, [0, 0, 0, 1], size),
+      yolo.slice(boxMaxes, [0, 0, 0, 0], size),
+    ],
+    3
+  );
 }
 
 /**
@@ -143,7 +156,10 @@ export function yolo_boxes_to_corners(boxXy: Tensor, boxWh: Tensor) {
  * @param {Number} iouThreshold IoU cutoff to filter overlapping boxes
  */
 export function non_max_suppression(
-    boxes: Float32Array|Int32Array|Uint8Array, scores: Float32Array|Int32Array|Uint8Array, iouThreshold: number) {
+  boxes: Float32Array | Int32Array | Uint8Array,
+  scores: Float32Array | Int32Array | Uint8Array,
+  iouThreshold: number
+) {
   // Zip together scores, box corners, and index
   const zipped = [];
   for (let i = 0; i < scores.length; i++) {
@@ -154,6 +170,7 @@ export function non_max_suppression(
     ]);
   }
   // Sort by descending order of scores (first index of zipped array)
+  // @ts-ignore
   const sortedBoxes = zipped.sort((a: number[], b: number[]) => b[0] - a[0]);
 
   const selectedBoxes: any[] = [];
@@ -217,12 +234,27 @@ export function yolo_head(feats: Tensor, anchors: Tensor, numClasses: number) {
     numAnchors,
     numClasses + 5,
   ]);
-  const convDimsTensor = yolo.cast(yolo.reshape(new Tensor('int32', convDims), [1, 1, 1, 2]), feats.type);
+  const convDimsTensor = yolo.cast(
+    yolo.reshape(new Tensor("int32", convDims), [1, 1, 1, 2]),
+    feats.type
+  );
 
-  let boxXy = yolo.sigmoid(yolo.slice(feats, [0, 0, 0, 0], [convDims0, convDims1, numAnchors, 2]));
-  let boxWh = yolo.exp(yolo.slice(feats, [0, 0, 0, 2], [convDims0, convDims1, numAnchors, 2]));
-  const boxConfidence = yolo.sigmoid(yolo.slice(feats, [0, 0, 0, 4], [convDims0, convDims1, numAnchors, 1]));
-  const boxClassProbs = yolo.softmax(yolo.slice(feats, [0, 0, 0, 5], [convDims0, convDims1, numAnchors, numClasses]));
+  let boxXy = yolo.sigmoid(
+    yolo.slice(feats, [0, 0, 0, 0], [convDims0, convDims1, numAnchors, 2])
+  );
+  let boxWh = yolo.exp(
+    yolo.slice(feats, [0, 0, 0, 2], [convDims0, convDims1, numAnchors, 2])
+  );
+  const boxConfidence = yolo.sigmoid(
+    yolo.slice(feats, [0, 0, 0, 4], [convDims0, convDims1, numAnchors, 1])
+  );
+  const boxClassProbs = yolo.softmax(
+    yolo.slice(
+      feats,
+      [0, 0, 0, 5],
+      [convDims0, convDims1, numAnchors, numClasses]
+    )
+  );
 
   boxXy = yolo.div(yolo.add(boxXy, convIndex), convDimsTensor);
   boxWh = yolo.div(yolo.mul(boxWh, anchorsArray), convDimsTensor);

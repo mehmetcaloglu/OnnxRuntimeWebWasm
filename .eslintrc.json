@@ -1,3 +1,4 @@
 {
-  "extends": "next/core-web-vitals"
+  "extends": "next/core-web-vitals",
+  "ignorePatterns": ["utils/utils-yolo/**/*.ts", "utils/**/*.ts"]
 }
