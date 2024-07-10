@@ -6,7 +6,7 @@ import WebcamModelUI from "../common/VueToReact";
 import { runModelUtils, yolo, yoloTransforms } from "../../utils/index";
 import { Tensor, InferenceSession } from "onnxruntime-web";
 
-const MODEL_FILEPATH_PROD = `/onnxruntime-web-demo/yolo.onnx`;
+const MODEL_FILEPATH_PROD = `/OnnxRuntimeWebWasm/yolo.onnx`;
 const MODEL_FILEPATH_DEV = "/yolo.onnx";
 
 const Yolo = ({ hasWebGL }) => {
